@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sstream>
 #include <algorithm>
+#include <map>
 #include "t_generator.h"
 #include "platform.h"
 #include "version.h"
@@ -127,6 +128,12 @@ class t_py_generator : public t_generator {
   void generate_py_struct_writer(std::ofstream& out, t_struct* tstruct);
   void generate_py_struct_required_validator(std::ofstream& out, t_struct* tstruct);
   void generate_py_function_helpers(t_function* tfunction);
+
+  void generate_py_union(t_struct* tstruct, bool is_exception);
+  void generate_py_union_definition(std::ofstream& out, t_struct* tstruct, bool is_xception=false, bool is_result=false);
+  void generate_py_union_reader(std::ofstream& out, t_struct* tstruct);
+  void generate_py_union_writer(std::ofstream& out, t_struct* tstruct);
+  void generate_py_union_validator(std::ofstream& out, t_struct* tstruct);
 
   /**
    * Service-level generation functions
@@ -593,7 +600,11 @@ string t_py_generator::render_const_value(t_type* type, t_const_value* value) {
  * Generates a python struct
  */
 void t_py_generator::generate_struct(t_struct* tstruct) {
-  generate_py_struct(tstruct, false);
+  if (tstruct->is_union()) {
+    generate_py_union(tstruct, false);
+  } else {
+    generate_py_struct(tstruct, false);
+  }
 }
 
 /**
@@ -612,6 +623,433 @@ void t_py_generator::generate_xception(t_struct* txception) {
 void t_py_generator::generate_py_struct(t_struct* tstruct,
                                         bool is_exception) {
   generate_py_struct_definition(f_types_, tstruct, is_exception);
+}
+
+/**
+ * Generates a python union
+ */
+void t_py_generator::generate_py_union(t_struct* tstruct,
+                                        bool is_exception) {
+  generate_py_union_definition(f_types_, tstruct, is_exception);
+}
+
+void t_py_generator::generate_py_union_definition(ofstream& out,
+                                                   t_struct* tstruct,
+                                                   bool is_exception,
+                                                   bool is_result) {
+  (void) is_result;
+  const vector<t_field*>& members = tstruct->get_members();
+  const vector<t_field*>& sorted_members = tstruct->get_sorted_members();
+  vector<t_field*>::const_iterator m_iter;
+
+  out << std::endl <<
+    "class " << tstruct->get_name();
+	// Untested
+  if (gen_newstyle_) {
+    out << "(object)";
+  } else if (gen_dynamic_) {
+    out << "(" << gen_dynbaseclass_ << ")";
+  }
+
+  out << ":" << endl;
+  indent_up();
+  generate_python_docstring(out, tstruct);
+  out << endl;
+
+
+  if (gen_slots_) {
+    indent(out) << "__slots__ = [ " << endl;
+    indent_up();
+    for (m_iter = sorted_members.begin(); m_iter != sorted_members.end(); ++m_iter) {
+      indent(out) <<  "'" << (*m_iter)->get_name()  << "'," << endl;
+    }
+    indent(out) << "'setfield'" << endl;
+    indent_down();
+    indent(out) << " ]" << endl << endl;
+
+  }
+  
+  // TODO(dreiss): Consider making this work for structs with negative tags.
+	// TODO(dreiss): Look into generating an empty tuple instead of None
+  // for structures with no members.
+  // TODO(dreiss): Test encoding of structs where some inner structs
+  // don't have thrift_spec.
+  if (sorted_members.empty() || (sorted_members[0]->get_key() >= 0)) {
+    indent(out) << "thrift_spec = (" << endl;
+    indent_up();
+
+    int sorted_keys_pos = 0;
+    for (m_iter = sorted_members.begin(); m_iter != sorted_members.end(); ++m_iter) {
+
+      for (; sorted_keys_pos != (*m_iter)->get_key(); sorted_keys_pos++) {
+        indent(out) << "None, # " << sorted_keys_pos << endl;
+      }
+
+      indent(out) << "(" << (*m_iter)->get_key() << ", "
+            << type_to_enum((*m_iter)->get_type()) << ", "
+            << "'" << (*m_iter)->get_name() << "'" << ", "
+            << type_to_spec_args((*m_iter)->get_type()) << ", "
+            << render_field_default_value(*m_iter) << ", "
+            << "),"
+            << " # " << sorted_keys_pos
+            << endl;
+
+      sorted_keys_pos ++;
+    }
+
+    indent_down();
+    indent(out) << ")" << endl << endl;
+  } else {
+    indent(out) << "thrift_spec = None" << endl;
+  }
+
+
+  if (members.size() > 0) {
+    out << indent() << "def __init__(self,";
+
+    for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
+      out << " " << (*m_iter)->get_name() << "=None" << ",";
+    }
+    out << "):" << endl;
+		indent_up();
+    indent(out) << "self.setfield = None" << endl;
+    for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
+/* REMOVE?
+      t_type* type = (*m_iter)->get_type();
+      if (!type->is_base_type() && !type->is_enum() && (*m_iter)->get_value() != NULL) {
+        out <<
+          "if " << (*m_iter)->get_name() << " is " << "self.thrift_spec[" <<
+            (*m_iter)->get_key() << "][4]:" << endl;
+        indent(out) << "  " << (*m_iter)->get_name() << " = " <<
+          render_field_default_value(*m_iter) << endl;
+      }
+*/
+      // Make 2 instantiations ANOTHER exception?
+
+      // Initialize fields
+      indent(out) << "if " << (*m_iter)->get_name() << " is not None:" << endl;
+			indent_up();
+			indent(out) << "self.setfield = '" << (*m_iter)->get_name() << "'" << endl;
+      indent_down();
+			indent(out) << "self." << (*m_iter)->get_name() << " = " <<
+				(*m_iter)->get_name() << endl;
+    }
+		indent_down();
+    out << endl;
+  }
+
+  // get_value returns the field of the union that is currently set
+	indent(out) << "def get_value(self):" << endl;
+	indent_up();
+  indent(out) << "return getattr(self, self.setfield)" << endl;
+	indent_down();
+  out << endl;
+
+  // clear is pretty self-explanatory (everything gets set to None)
+  indent(out) << "def clear(self):" << endl;
+  indent_up();
+  indent(out) << "self.setfield = None" << endl;
+  for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
+	  indent(out) << "self." << (*m_iter)->get_name() << " = None" << endl;
+ 	}
+	indent_down();
+	out << endl;
+
+  // set_field takes a field name and value and sets the field to that
+  // value. if the field name is not found, a protocol exception is thrown
+	indent(out) << "def set_field(self, fname, value):" << endl;
+	indent_up();
+  indent(out) << "self.clear()" << endl;
+  indent(out) << "if not hasattr(self, fname):" << endl;
+  indent_up();
+  indent(out) << "raise TProtocol.TProtocolException(message=\"\".join([" <<
+    "'Field with name \\'', fname, '\\' not found.']))" << endl;
+  indent_down();
+  indent(out) << "setattr(self, fname, value)" << endl;
+  indent(out) << "self.setfield = fname" << endl;
+	indent_down();
+	out << endl;
+
+  // Inserts the validator function
+  generate_py_union_validator(out, tstruct);
+  
+  // Inserts the IO functions
+	if (!gen_dynamic_) {
+    generate_py_union_reader(out, tstruct);
+    generate_py_union_writer(out, tstruct);
+  }
+
+  if (!gen_slots_) {
+    // Printing utilities so that on the command line thrift
+    // structs look pretty like dictionaries
+    out <<
+      indent() << "def __repr__(self):" << endl <<
+      indent() << "  L = ['%s=%r' % (key, value)" << endl <<
+      indent() << "    for key, value in self.__dict__.iteritems()]" << endl <<
+      indent() << "  return '%s(%s)' % (self.__class__.__name__, ', '.join(L))" << endl <<
+      endl;
+
+    // Equality and inequality methods that compare by value
+    out <<
+      indent() << "def __eq__(self, other):" << endl;
+    indent_up();
+    out <<
+      indent() << "return isinstance(other, self.__class__) and "
+                  "self.__dict__ == other.__dict__" << endl;
+    indent_down();
+    out << endl;
+
+    out <<
+      indent() << "def __ne__(self, other):" << endl;
+    indent_up();
+
+    out <<
+      indent() << "return not (self == other)" << endl;
+    indent_down();
+  } else if (!gen_dynamic_) {
+    // no base class available to implement __eq__ and __repr__ and __ne__ for us
+    // so we must provide one that uses __slots__
+    out <<
+      indent() << "def __repr__(self):" << endl <<
+      indent() << "  L = ['%s=%r' % (key, getattr(self, key))" << endl <<
+      indent() << "    for key in self.__slots__]" << endl <<
+      indent() << "  return '%s(%s)' % (self.__class__.__name__, ', '.join(L))" << endl <<
+      endl;
+    
+    // Equality method that compares each attribute by value and type, walking __slots__
+    out <<
+      indent() << "def __eq__(self, other):" << endl <<
+      indent() << "  if not isinstance(other, self.__class__):" << endl <<
+      indent() << "    return False" << endl <<
+      indent() << "  for attr in self.__slots__:" << endl <<
+      indent() << "    my_val = getattr(self, attr)" << endl <<
+      indent() << "    other_val = getattr(other, attr)" << endl <<
+      indent() << "    if my_val != other_val:" << endl <<
+      indent() << "      return False" << endl <<
+      indent() << "  return True" << endl <<
+      endl;
+    
+    out <<
+      indent() << "def __ne__(self, other):" << endl <<
+      indent() << "  return not (self == other)" << endl <<
+      endl;
+  }
+  indent_down();
+}
+
+/**
+ * Generates the read method for a union
+ */
+void t_py_generator::generate_py_union_reader(ofstream& out,
+                                                t_struct* tstruct) {
+  const vector<t_field*>& fields = tstruct->get_members();
+  vector<t_field*>::const_iterator f_iter;
+
+  indent(out) << "def read(self, iprot):" << endl;
+  indent_up();
+/*
+  indent(out) <<
+    "if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated "
+    "and isinstance(iprot.trans, TTransport.CReadableTransport) "
+    "and self.thrift_spec is not None "
+    "and fastbinary is not None:" << endl;
+  indent_up();
+
+  indent(out) <<
+    "fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))" << endl;
+  indent(out) <<
+    "return" << endl;
+  indent_down();
+*/
+  // Clear current Union to ensure a valid final state
+  indent(out) << "self.clear()" << endl;
+
+  indent(out) << "iprot.readStructBegin()" << endl;
+  
+  // Read beginning field marker
+  indent(out) << "(fname, ftype, fid) = iprot.readFieldBegin()" << endl;
+
+  // Check to see whether the read failed
+  indent(out) << "if ftype < 0:" << endl;
+  indent_up();
+  indent(out) << "raise TProtocol.TProtocolException(message='Read Failed.')" << endl;
+  indent_down();
+
+  // Generate deserialization code for fields
+	out << indent();
+  for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
+    out << "if fid == " << (*f_iter)->get_key() << ":" << endl;
+    indent_up();
+    indent(out) << "if ftype == " << type_to_enum((*f_iter)->get_type()) << ":" << endl;
+    indent_up();
+    generate_deserialize_field(out, *f_iter, "self.");
+    indent(out) << "self.setfield = '" << (*f_iter)->get_name() << "'" << endl;
+    indent_down();
+    indent(out) << "else:" << endl;
+	 	indent_up();
+		indent(out) << "iprot.skip(ftype)" << endl;
+    indent_down();
+		indent_down();
+		indent(out) << "el";
+  }
+  out << "se:" << endl;
+	indent_up();
+	indent(out) << "iprot.skip(ftype)" << endl;
+	indent_down();
+
+  // Check for field STOP marker and break
+	indent(out) <<
+    "(fname, ftype, fid) = iprot.readFieldBegin()" << endl;
+  indent(out) <<
+    "if ftype != TType.STOP:" << endl;
+  indent_up();
+ 	indent(out) << "raise TProtocol.TProtocolException(message='Union cannot read" <<
+		" more than one field.')" << endl;
+	indent_down();
+
+  // Terminate reading
+  indent(out) << "iprot.readFieldEnd()" << endl;
+  indent(out) << "iprot.readStructEnd()" << endl;
+  indent_down();
+  out << endl;
+}
+
+void t_py_generator::generate_py_union_writer(ofstream& out,
+                                               t_struct* tstruct) {
+  string name = tstruct->get_name();
+  const vector<t_field*>& fields = tstruct->get_sorted_members();
+  vector<t_field*>::const_iterator f_iter;
+
+  indent(out) <<
+    "def write(self, oprot):" << endl;
+  indent_up();
+/*
+  indent(out) <<
+    "if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated "
+    "and self.thrift_spec is not None "
+    "and fastbinary is not None:" << endl;
+  indent_up();
+
+  indent(out) <<
+    "oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))" << endl;
+  indent(out) <<
+    "return" << endl;
+  indent_down();
+*/
+  // Ensure the object is in a valid state before writing
+	indent(out) << "self.validate()" << endl;
+
+  // Write union header
+  indent(out) << "oprot.writeStructBegin('" << name << "')" << endl;
+  
+  // Handles the case of any field being set and defines the requisite
+  // writes depending on the field type
+  for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
+    indent(out) << "if self." << (*f_iter)->get_name() << " is not None:" << endl;
+
+    // Begin write, write field contents, and then finish
+    indent_up();
+    indent(out) << "oprot.writeFieldBegin('" << (*f_iter)->get_name() << "', " <<
+      type_to_enum((*f_iter)->get_type()) << ", " << (*f_iter)->get_key() << ")" << endl;
+    generate_serialize_field(out, *f_iter, "self.");
+    indent(out) << "oprot.writeFieldEnd()" << endl;
+    indent_down();
+  }
+
+  // Terminates the write block
+  indent(out) << "oprot.writeFieldStop()" << endl;
+  indent(out) << "oprot.writeStructEnd()" << endl;
+  out << endl;
+  indent_down();
+  out << endl;
+}
+
+void t_py_generator::generate_py_union_validator(ofstream& out,
+                                               t_struct* tstruct) {
+  // Maps the TType strings to the corresponding python types
+  map<string, string> TTypeToPy;
+  TTypeToPy["TType.STRING"] = "(str, unicode)";
+  TTypeToPy["TType.BYTE"] = "int";
+  TTypeToPy["TType.I08"] = "int";
+  TTypeToPy["TType.I16"] = "int";
+  TTypeToPy["TType.I32"] = "int";
+  TTypeToPy["TType.I64"] = "int";
+  TTypeToPy["TType.BOOL"] = "bool";
+  TTypeToPy["TType.LIST"] = "list";
+  TTypeToPy["TType.SET"] = "set";
+  TTypeToPy["TType.MAP"] = "dict";
+  TTypeToPy["TType.DOUBLE"] = "float";
+	TTypeToPy["TType.UTF7"] = "unicode";
+  TTypeToPy["TType.UTF8"] = "unicode";
+  TTypeToPy["TType.UTF16"] = "unicode";
+  
+  indent(out) << "def validate(self):" << endl;
+  indent_up();
+  
+  // Goes through all the fields of the union and ensures it is in a valid
+  // internal state. It will throw a protocol exception if it fails.
+  const vector<t_field*>& fields = tstruct->get_members();
+  vector<t_field*>::const_iterator m_iter;
+  if (fields.size() > 0) {
+
+    // is_set variable is True when the function has encountered a non-None field
+    indent(out) << "is_set = False" << endl;
+
+    // Exception if the functions determines more than one field is set
+		indent(out) << "multiple_set_fields = lambda field: TProtocol.TProtocolException(message=" <<
+			"\"\".join(['Union field \\'', field, '\\' contains a value while \\''" <<
+			", self.setfield, '\\'should be the only non-None field.']))" << endl;
+		
+    // Exception if the function determines the field's type doesn't match
+    // that value's type
+    indent(out) << "type_mismatch = lambda field, expected_type: TProtocol.TProtocolException(message=" <<
+      "\"\".join(['Value of field \\'', field, '\\' is of python type \\'', " <<
+      "type(getattr(self, field)).__name__, '\\' and not of the anticipated type \\''" <<
+      ", expected_type, '\\'.']))" << endl;
+		
+    indent(out) << "if self.setfield is None:" << endl;
+		indent_up();
+		indent(out) << "raise TProtocol.TProtocolException(message='Field indicating which Union field " <<
+			"is set is uninitialized. Call set_field(field_name, field_value) to fix state.')" << endl;
+		indent_down();
+    
+    // Checks each field of the union to check for the type errors and
+    // multiple set fields
+    for (m_iter = fields.begin(); m_iter != fields.end(); ++m_iter) {
+      
+      // Retreives the name of the struct class to check that the object
+      // instantiated is indeed an instance of the right struct
+      if (type_to_enum((*m_iter)->get_type()) == "TType.STRUCT") {
+        std::string s1(type_to_spec_args((*m_iter)->get_type()), 1);
+        std::string target(s1, 0, s1.find(","));
+        TTypeToPy["TType.STRUCT"] = target;
+      }
+      indent(out) << "if self." << (*m_iter)->get_name() << " is not None:" << endl;
+			indent_up();
+			indent(out) << "if is_set or '" << (*m_iter)->get_name() << "' != self.setfield:" << endl;
+			indent_up();
+			indent(out) << "raise multiple_set_fields('" << (*m_iter)->get_name() << "')" << endl;
+			indent_down();
+			indent(out) << "if not isinstance(self." << (*m_iter)->get_name() << ", " <<
+        TTypeToPy[type_to_enum((*m_iter)->get_type())] << "):" << endl;
+			indent_up();
+			indent(out) << "raise type_mismatch('" << (*m_iter)->get_name() << "', '" <<
+        TTypeToPy[type_to_enum((*m_iter)->get_type())] << "')" << endl;
+			indent_down();
+			indent(out) << "is_set = True" << endl;
+			indent_down();
+    }
+
+    // Fails if no field is set
+		indent(out) << "if not is_set:" << endl;
+		indent_up();
+		indent(out) << "raise TProtocol.TProtocolException(message='Union has no initialized fields.')" << endl;
+		indent_down();
+  } else {
+		indent(out) << "return" << endl;
+	}
+  indent_down();
+	out << endl;
 }
 
 /**
