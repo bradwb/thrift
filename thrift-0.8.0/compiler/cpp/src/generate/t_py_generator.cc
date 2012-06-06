@@ -999,14 +999,14 @@ void t_py_generator::generate_py_union_validator(ofstream& out,
     indent(out) << "multiple_set_fields = lambda field: TProtocol.TProtocolException(message=" <<
       "\"\".join(['Union field \\'', field, '\\' contains a value while \\''" <<
       ", self.setfield, '\\'should be the only non-None field.']))" << endl;
-    
+
     // Exception if the function determines the field's type doesn't match
     // that value's type
     indent(out) << "type_mismatch = lambda field, expected_type: TProtocol.TProtocolException(message=" <<
       "\"\".join(['Value of field \\'', field, '\\' is of python type \\'', " <<
       "type(getattr(self, field)).__name__, '\\' and not of the anticipated type \\''" <<
       ", expected_type, '\\'.']))" << endl;
-    
+
     indent(out) << "if self.setfield is None:" << endl;
     indent_up();
     indent(out) << "raise TProtocol.TProtocolException(message='Field indicating which Union field " <<

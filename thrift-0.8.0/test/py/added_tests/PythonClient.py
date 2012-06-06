@@ -20,10 +20,10 @@
 #
 
 import sys
-sys.path.append('../gen-py')
+sys.path.append('./gen-py')
 
-from tutorial import Calculator
-from tutorial.ttypes import *
+from debug import UnionTest
+from debug.ttypes import *
 
 from thrift import Thrift
 from thrift.transport import TSocket
@@ -31,52 +31,25 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
 try:
+	transport = TSocket.TSocket('localhost', 9090)
+	transport = TTransport.TBufferedTransport(transport)
+	protocol = TBinaryProtocol.TBinaryProtocol(transport)
+	client = UnionTest.Client(protocol)
+	transport.open()
 
-  # Make socket
-  transport = TSocket.TSocket('localhost', 9090)
+	print " UNION TEST ".center(50, "=")
 
-  # Buffering is critical. Raw sockets are very slow
-  transport = TTransport.TBufferedTransport(transport)
+	# Implicitly checks read and write methods
+	try:
+		res = client.test_constructor()
+		res = client.test_clear()
+		res = client.test_set_field()
+	except Exception, exe:
+		"TEST FAILED:\n\t%r" % exe
+		sys.exit(1);
 
-  # Wrap in a protocol
-  protocol = TBinaryProtocol.TBinaryProtocol(transport)
-
-  # Create a client to use the protocol encoder
-  client = Calculator.Client(protocol)
-
-  # Connect!
-  transport.open()
-  
-  print "TEST SIMPLE NUMBERS"
-  out = lambda num: "Client got: " + str(num) 
-  integ = Num(num1=12)
-  print "Begin: ", integ
-  flt = Num(num2=124.1281)
-  print "Begin: ", flt
-  print out(client.echo(integ))
-  print out(client.echo(flt))
-  integ.set_field('num2', 12.0)
-  assert client.echo(integ) == integ
-  try:
-    flt.set_field('num1', 40)
-    flt.num2 = 123
-    #print out(client.echo(flt))
-  except TProtocol.TProtocolException, exe:
-    print "Invalid Operation %r" % exe
-
-#  client.change(ret1)
-#  client.change(ret2)
-  big1 = Biggun(myi32=34)
-  big2 = Biggun(mylist=[2,456,12154])
-  big2.set_field('mymap', {'hey':123, 'watup':22})
-  big2.set_field('myset', set([1,4,5,2,1]))
-  print big2
-  print out(client.echoBig(big1))
-  print out(client.echoBig(big2))
-  client.clear(big1)
-  print big1
-  # Close!
-  transport.close()
+	print "ALL TESTS PASSED"
+	transport.close()
 
 except Thrift.TException, tx:
-  print '%s' % (tx.message)
+	print '%s' % (tx.message)

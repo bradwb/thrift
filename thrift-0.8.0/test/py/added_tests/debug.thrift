@@ -294,7 +294,7 @@ struct StructWithAUnion {
 typedef map<i32,i32> SomeMap
 
 
-union BigFieldIdStruct {
+struct BigFieldIdStruct {
   1: string field1;
   45: string field2;
 }
@@ -321,8 +321,12 @@ struct TupleProtocolTestStruct {
 }
 
 service UnionTest {
-		BreaksRuby messAround(1:BreaksRuby br, 2:TestUnion tu),
-		StructWithAUnion makeFromTU(1:TestUnion tu),
-		void record(1:Nesting n),
-		TestUnion makeSomethingBreak(1:TestUnion tu)
+	TestUnion test_set_field(),
+	TestUnion test_constructor(),
+	TestUnion test_clear()
+
+//		BreaksRuby messAround(1:BreaksRuby br, 2:TestUnion tu),
+//		StructWithAUnion makeFromTU(1:TestUnion tu),
+//		void record(1:Nesting n),
+//		TestUnion makeSomethingBreak(1:TestUnion tu)
 }
