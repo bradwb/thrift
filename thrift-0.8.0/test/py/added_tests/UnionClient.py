@@ -42,7 +42,7 @@ try:
 	# Implicitly checks read and write methods
 	try:
 		res = client.test_constructor()
-		res = client.test_client()
+		res = client.test_set_field()
 		res = client.test_clear()
 	except Exception, exe:
 		print "TEST FAILED:\n\t%r" % exe

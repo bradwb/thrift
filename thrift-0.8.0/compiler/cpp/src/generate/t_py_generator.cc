@@ -122,6 +122,9 @@ class t_py_generator : public t_generator {
    * Struct generation code
    */
 
+  void generate_py_utilities(std::ofstream& out);
+  void generate_py_thrift_spec(std::ofstream& out, t_struct* tstruct);
+
   void generate_py_struct(t_struct* tstruct, bool is_exception);
   void generate_py_struct_definition(std::ofstream& out, t_struct* tstruct, bool is_xception=false, bool is_result=false);
   void generate_py_struct_reader(std::ofstream& out, t_struct* tstruct);
@@ -633,43 +636,11 @@ void t_py_generator::generate_py_union(t_struct* tstruct,
   generate_py_union_definition(f_types_, tstruct, is_exception);
 }
 
-void t_py_generator::generate_py_union_definition(ofstream& out,
-                                                   t_struct* tstruct,
-                                                   bool is_exception,
-                                                   bool is_result) {
-  (void) is_result;
-  const vector<t_field*>& members = tstruct->get_members();
+void t_py_generator::generate_py_thrift_spec(ofstream& out,
+                                              t_struct* tstruct) {
   const vector<t_field*>& sorted_members = tstruct->get_sorted_members();
   vector<t_field*>::const_iterator m_iter;
 
-  out << std::endl <<
-    "class " << tstruct->get_name();
-  // Untested
-  if (gen_newstyle_) {
-    out << "(object)";
-  } else if (gen_dynamic_) {
-    out << "(" << gen_dynbaseclass_ << ")";
-  }
-
-  out << ":" << endl;
-  indent_up();
-  generate_python_docstring(out, tstruct);
-  out << endl;
-
-
-  if (gen_slots_) {
-    indent(out) << "__slots__ = [ " << endl;
-    indent_up();
-    for (m_iter = sorted_members.begin(); m_iter != sorted_members.end(); ++m_iter) {
-      indent(out) <<  "'" << (*m_iter)->get_name()  << "'," << endl;
-    }
-    indent(out) << "'setfield'" << endl;
-    indent_down();
-    indent(out) << " ]" << endl << endl;
-
-  }
-  
-  // TODO(dreiss): Consider making this work for structs with negative tags.
   // TODO(dreiss): Look into generating an empty tuple instead of None
   // for structures with no members.
   // TODO(dreiss): Test encoding of structs where some inner structs
@@ -704,81 +675,9 @@ void t_py_generator::generate_py_union_definition(ofstream& out,
   }
 
 
-  if (members.size() > 0) {
-    out << indent() << "def __init__(self,";
+}
 
-    for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
-      out << " " << (*m_iter)->get_name() << "=None" << ",";
-    }
-    out << "):" << endl;
-    indent_up();
-    indent(out) << "self.setfield = None" << endl;
-    for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
-/* REMOVE?
-      t_type* type = (*m_iter)->get_type();
-      if (!type->is_base_type() && !type->is_enum() && (*m_iter)->get_value() != NULL) {
-        out <<
-          "if " << (*m_iter)->get_name() << " is " << "self.thrift_spec[" <<
-            (*m_iter)->get_key() << "][4]:" << endl;
-        indent(out) << "  " << (*m_iter)->get_name() << " = " <<
-          render_field_default_value(*m_iter) << endl;
-      }
-*/
-      // Make 2 instantiations ANOTHER exception?
-
-      // Initialize fields
-      indent(out) << "if " << (*m_iter)->get_name() << " is not None:" << endl;
-      indent_up();
-      indent(out) << "self.setfield = '" << (*m_iter)->get_name() << "'" << endl;
-      indent_down();
-      indent(out) << "self." << (*m_iter)->get_name() << " = " <<
-        (*m_iter)->get_name() << endl;
-    }
-    indent_down();
-    out << endl;
-  }
-
-  // get_value returns the field of the union that is currently set
-  indent(out) << "def get_value(self):" << endl;
-  indent_up();
-  indent(out) << "return getattr(self, self.setfield)" << endl;
-  indent_down();
-  out << endl;
-
-  // clear is pretty self-explanatory (everything gets set to None)
-  indent(out) << "def clear(self):" << endl;
-  indent_up();
-  indent(out) << "self.setfield = None" << endl;
-  for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
-    indent(out) << "self." << (*m_iter)->get_name() << " = None" << endl;
-   }
-  indent_down();
-  out << endl;
-
-  // set_field takes a field name and value and sets the field to that
-  // value. if the field name is not found, a protocol exception is thrown
-  indent(out) << "def set_field(self, fname, value):" << endl;
-  indent_up();
-  indent(out) << "self.clear()" << endl;
-  indent(out) << "if not hasattr(self, fname):" << endl;
-  indent_up();
-  indent(out) << "raise TProtocol.TProtocolException(message=\"\".join([" <<
-    "'Field with name \\'', fname, '\\' not found.']))" << endl;
-  indent_down();
-  indent(out) << "setattr(self, fname, value)" << endl;
-  indent(out) << "self.setfield = fname" << endl;
-  indent_down();
-  out << endl;
-
-  // Inserts the validator function
-  generate_py_union_validator(out, tstruct);
-  
-  // Inserts the IO functions
-  if (!gen_dynamic_) {
-    generate_py_union_reader(out, tstruct);
-    generate_py_union_writer(out, tstruct);
-  }
-
+void t_py_generator::generate_py_utilities(std::ofstream& out) {
   if (!gen_slots_) {
     // Printing utilities so that on the command line thrift
     // structs look pretty like dictionaries
@@ -834,6 +733,113 @@ void t_py_generator::generate_py_union_definition(ofstream& out,
       indent() << "  return not (self == other)" << endl <<
       endl;
   }
+}
+
+
+void t_py_generator::generate_py_union_definition(ofstream& out,
+                                                   t_struct* tstruct,
+                                                   bool is_exception,
+                                                   bool is_result) {
+  (void) is_result;
+  const vector<t_field*>& members = tstruct->get_members();
+  const vector<t_field*>& sorted_members = tstruct->get_sorted_members();
+  vector<t_field*>::const_iterator m_iter;
+
+  out << std::endl <<
+    "class " << tstruct->get_name();
+  // Untested
+  if (gen_newstyle_) {
+    out << "(object)";
+  } else if (gen_dynamic_) {
+    out << "(" << gen_dynbaseclass_ << ")";
+  }
+
+  out << ":" << endl;
+  indent_up();
+  generate_python_docstring(out, tstruct);
+  out << endl;
+
+
+  if (gen_slots_) {
+    indent(out) << "__slots__ = [ " << endl;
+    indent_up();
+    for (m_iter = sorted_members.begin(); m_iter != sorted_members.end(); ++m_iter) {
+      indent(out) <<  "'" << (*m_iter)->get_name()  << "'," << endl;
+    }
+    indent(out) << "'setfield'" << endl;
+    indent_down();
+    indent(out) << " ]" << endl << endl;
+
+  }
+
+  generate_py_thrift_spec(out, tstruct);
+
+  if (members.size() > 0) {
+    out << indent() << "def __init__(self,";
+
+    for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
+      out << " " << (*m_iter)->get_name() << "=None" << ",";
+    }
+    out << "):" << endl;
+    indent_up();
+    indent(out) << "self.setfield = None" << endl;
+    for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
+      // Make 2 instantiations ANOTHER exception?
+
+      // Initialize fields
+      indent(out) << "if " << (*m_iter)->get_name() << " is not None:" << endl;
+      indent_up();
+      indent(out) << "self.setfield = '" << (*m_iter)->get_name() << "'" << endl;
+      indent_down();
+      indent(out) << "self." << (*m_iter)->get_name() << " = " <<
+        (*m_iter)->get_name() << endl;
+    }
+    indent_down();
+    out << endl;
+  }
+
+  // get_value returns the field of the union that is currently set
+  indent(out) << "def get_value(self):" << endl;
+  indent_up();
+  indent(out) << "return getattr(self, self.setfield)" << endl;
+  indent_down();
+  out << endl;
+
+  // clear is pretty self-explanatory, everything gets set to None
+  indent(out) << "def clear(self):" << endl;
+  indent_up();
+  indent(out) << "self.setfield = None" << endl;
+  for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
+    indent(out) << "self." << (*m_iter)->get_name() << " = None" << endl;
+   }
+  indent_down();
+  out << endl;
+
+  // set_field takes a field name and value and sets the field to that
+  // value. if the field name is not found, a protocol exception is thrown
+  indent(out) << "def set_field(self, fname, value):" << endl;
+  indent_up();
+  indent(out) << "self.clear()" << endl;
+  indent(out) << "if not hasattr(self, fname):" << endl;
+  indent_up();
+  indent(out) << "raise TProtocol.TProtocolException(message=\"\".join([" <<
+    "'Field with name \\'', fname, '\\' not found.']))" << endl;
+  indent_down();
+  indent(out) << "setattr(self, fname, value)" << endl;
+  indent(out) << "self.setfield = fname" << endl;
+  indent_down();
+  out << endl;
+
+  // Inserts the validator function
+  generate_py_union_validator(out, tstruct);
+  
+  // Inserts the IO functions
+  if (!gen_dynamic_) {
+    generate_py_union_reader(out, tstruct);
+    generate_py_union_writer(out, tstruct);
+  }
+
+  generate_py_utilities(out);
   indent_down();
 }
 
@@ -1118,39 +1124,7 @@ void t_py_generator::generate_py_struct_definition(ofstream& out,
 
   }
 
-  // TODO(dreiss): Look into generating an empty tuple instead of None
-  // for structures with no members.
-  // TODO(dreiss): Test encoding of structs where some inner structs
-  // don't have thrift_spec.
-  if (sorted_members.empty() || (sorted_members[0]->get_key() >= 0)) {
-    indent(out) << "thrift_spec = (" << endl;
-    indent_up();
-
-    int sorted_keys_pos = 0;
-    for (m_iter = sorted_members.begin(); m_iter != sorted_members.end(); ++m_iter) {
-
-      for (; sorted_keys_pos != (*m_iter)->get_key(); sorted_keys_pos++) {
-        indent(out) << "None, # " << sorted_keys_pos << endl;
-      }
-
-      indent(out) << "(" << (*m_iter)->get_key() << ", "
-            << type_to_enum((*m_iter)->get_type()) << ", "
-            << "'" << (*m_iter)->get_name() << "'" << ", "
-            << type_to_spec_args((*m_iter)->get_type()) << ", "
-            << render_field_default_value(*m_iter) << ", "
-            << "),"
-            << " # " << sorted_keys_pos
-            << endl;
-
-      sorted_keys_pos ++;
-    }
-
-    indent_down();
-    indent(out) << ")" << endl << endl;
-  } else {
-    indent(out) << "thrift_spec = None" << endl;
-  }
-
+  generate_py_thrift_spec(out, tstruct);
 
   if (members.size() > 0) {
     out <<
@@ -1199,61 +1173,8 @@ void t_py_generator::generate_py_struct_definition(ofstream& out,
       endl;
   }
 
-  if (!gen_slots_) {
-    // Printing utilities so that on the command line thrift
-    // structs look pretty like dictionaries
-    out <<
-      indent() << "def __repr__(self):" << endl <<
-      indent() << "  L = ['%s=%r' % (key, value)" << endl <<
-      indent() << "    for key, value in self.__dict__.iteritems()]" << endl <<
-      indent() << "  return '%s(%s)' % (self.__class__.__name__, ', '.join(L))" << endl <<
-      endl;
+  generate_py_utilities(out);
 
-    // Equality and inequality methods that compare by value
-    out <<
-      indent() << "def __eq__(self, other):" << endl;
-    indent_up();
-    out <<
-      indent() << "return isinstance(other, self.__class__) and "
-                  "self.__dict__ == other.__dict__" << endl;
-    indent_down();
-    out << endl;
-
-    out <<
-      indent() << "def __ne__(self, other):" << endl;
-    indent_up();
-
-    out <<
-      indent() << "return not (self == other)" << endl;
-    indent_down();
-  } else if (!gen_dynamic_) {
-    // no base class available to implement __eq__ and __repr__ and __ne__ for us
-    // so we must provide one that uses __slots__
-    out <<
-      indent() << "def __repr__(self):" << endl <<
-      indent() << "  L = ['%s=%r' % (key, getattr(self, key))" << endl <<
-      indent() << "    for key in self.__slots__]" << endl <<
-      indent() << "  return '%s(%s)' % (self.__class__.__name__, ', '.join(L))" << endl <<
-      endl;
-    
-    // Equality method that compares each attribute by value and type, walking __slots__
-    out <<
-      indent() << "def __eq__(self, other):" << endl <<
-      indent() << "  if not isinstance(other, self.__class__):" << endl <<
-      indent() << "    return False" << endl <<
-      indent() << "  for attr in self.__slots__:" << endl <<
-      indent() << "    my_val = getattr(self, attr)" << endl <<
-      indent() << "    other_val = getattr(other, attr)" << endl <<
-      indent() << "    if my_val != other_val:" << endl <<
-      indent() << "      return False" << endl <<
-      indent() << "  return True" << endl <<
-      endl;
-    
-    out <<
-      indent() << "def __ne__(self, other):" << endl <<
-      indent() << "  return not (self == other)" << endl <<
-      endl;
-  }
   indent_down();
 }
 
