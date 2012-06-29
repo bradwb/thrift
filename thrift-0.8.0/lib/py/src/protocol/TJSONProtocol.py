@@ -31,7 +31,7 @@ class LookaheadReader:
     if self._hasData:
       self._hasData = False
       chars = self.data + self.trans.readAll(size - 1)
-      self.data = chars[-1] 
+      self.data = chars[-1]
     else:
       self.data = self.trans.readAll(size)[-1]
     return self.data

@@ -28,12 +28,16 @@ del sys.argv[1:] # clean up hack so unittest doesn't complain
 sys.path.insert(0, options.genpydir)
 sys.path.insert(0, glob.glob('../../lib/py/build/lib.*')[0])
 
+import sys
+sys.path.append('../gen-py')
+
 from ThriftTest import ThriftTest
 from ThriftTest.ttypes import *
 from thrift.transport import TTransport
 from thrift.transport import TSocket
 from thrift.protocol import TBinaryProtocol
 from thrift.protocol import TCompactProtocol
+from thrift.protocol import TJSONProtocol
 import unittest
 import time
 
@@ -125,6 +129,12 @@ class TestEof(unittest.TestCase):
     """Test that TCompactProtocol throws an EOFError when it reaches the end of the stream"""
     self.eofTestHelper(TCompactProtocol.TCompactProtocolFactory())
     self.eofTestHelperStress(TCompactProtocol.TCompactProtocolFactory())
+
+  def testJSONProtocolEof(self):
+    """Test that TJSONProtocol throws an EOFError when it reaches the end of the stream"""
+    self.eofTestHelper(TJSONProtocol.TJSONProtocolFactory())
+    self.eofTestHelperStress(TJSONProtocol.TJSONProtocolFactory())
+
 
 def suite():
   suite = unittest.TestSuite()

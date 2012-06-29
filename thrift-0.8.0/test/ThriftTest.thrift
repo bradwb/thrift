@@ -89,7 +89,6 @@ struct Xtruct3
   11: i64    i64_thing
 }
 
-
 struct Insanity
 {
   1: map<Numberz, UserId> userMap,
@@ -119,6 +118,42 @@ struct OneField {
   1: EmptyStruct field
 }
 
+union Yoonion
+{
+  1: string string_thing
+  2: byte   byte_thing
+  3: i32    i32_thing
+  4: i64    i64_thing
+}
+
+union Yoonion2
+{
+  1:  string  string_thing
+  4:  Yoonion union_thing
+  9:  bool    bool_thing
+  11: i32     i32_thing
+}
+
+union EmptyUnion {}
+
+union SingleField
+{
+  1: EmptyUnion field
+}
+
+union Nested
+{
+  1: list<Yoonion> unions
+  2: set<EmptyUnion> empties
+}
+
+union Maps
+{
+  1: map<i32,i32> i32_map
+  2: map<byte,byte> byte_map
+  3: map<string,list<byte>> nested_map
+}
+
 service ThriftTest
 {
   void         testVoid(),
@@ -129,6 +164,9 @@ service ThriftTest
   double       testDouble(1: double thing),
   Xtruct       testStruct(1: Xtruct thing),
   Xtruct2      testNest(1: Xtruct2 thing),
+  Yoonion      testUnion(1: Yoonion thing),
+  Yoonion2     testUnionNest(1: Yoonion2 thring),
+
   map<i32,i32> testMap(1: map<i32,i32> thing),
   map<string,string> testStringMap(1: map<string,string> thing),
   set<i32>     testSet(1: set<i32> thing),

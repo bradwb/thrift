@@ -41,14 +41,13 @@ try:
   print " JSON TEST ".center(50, "=")
 
   try:
-		c = COMPACT_TEST
-		c.byte_byte_map = {}
-		res = client.test(COMPACT_TEST)
+    c = COMPACT_TEST
+    c.byte_byte_map = {}
+    res = client.test(COMPACT_TEST)
   except Exception, exc:
     print 'TEST FAILED:\n\t%r' % exc
-    sys.exit(1)
-
-  transport.close()
+  finally:
+    transport.close()
 
 except Thrift.TException, tx:
   print '%s' % (tx.message)

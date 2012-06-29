@@ -74,7 +74,11 @@ struct CompactProtoTestStruct {
   8: bool   true_field;
   9: bool   false_field;
   10: Empty empty_struct_field;
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> Fixed multiple bugs in union and JSON.
   // primitives in lists
   11: list<byte>    byte_list;
   12: list<i16>     i16_list;
@@ -85,7 +89,11 @@ struct CompactProtoTestStruct {
   17: list<binary>  binary_list;
   18: list<bool>    boolean_list;
   19: list<Empty>   struct_list;
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> Fixed multiple bugs in union and JSON.
   // primitives in sets
   20: set<byte>     byte_set;
   21: set<i16>      i16_set;
@@ -96,7 +104,11 @@ struct CompactProtoTestStruct {
   26: set<binary>   binary_set;
   27: set<bool>     boolean_set;
   28: set<Empty>    struct_set;
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> Fixed multiple bugs in union and JSON.
   // maps
   // primitives as keys
   29: map<byte, byte>             byte_byte_map;
@@ -321,12 +333,7 @@ struct TupleProtocolTestStruct {
 }
 
 service UnionTest {
-	TestUnion test_set_field(),
-	TestUnion test_constructor(),
-	TestUnion test_clear()
-
-//		BreaksRuby messAround(1:BreaksRuby br, 2:TestUnion tu),
-//		StructWithAUnion makeFromTU(1:TestUnion tu),
-//		void record(1:Nesting n),
-//		TestUnion makeSomethingBreak(1:TestUnion tu)
+  TestUnion test_set_field(),
+  TestUnion test_constructor(),
+  TestUnion test_clear()
 }

@@ -38,27 +38,27 @@ class JsonTestHandler(unittest.TestCase):
 #	def setup(self):
 #		self.tu = TestUnion()
 
-	def test(self, testStruct):
-		ret = RandomStuff()
-		ret.myintlist = testStruct.i32_list[:]
-		myWrapper = Wrapper(Empty())
-		ret.maps = {3 : myWrapper}
-		ret.bigint = testStruct.a_i64
-		ret.triple = testStruct.a_double
-		ret.a = 12431234
-		ret.b = testStruct.a_i32
-		ret.c = 40000
-		ret.d = 0
-		return ret
-		#self.assertEqual(self.tu, TestUnion(i32_field=43))
+  def test(self, testStruct):
+    ret = RandomStuff()
+    ret.myintlist = testStruct.i32_list[:]
+    myWrapper = Wrapper(Empty())
+    ret.maps = {3 : myWrapper}
+    ret.bigint = testStruct.a_i64
+    ret.triple = testStruct.a_double
+    ret.a = 12431234
+    ret.b = testStruct.a_i32
+    ret.c = 40000
+    ret.d = 0
+    return ret
+    #self.assertEqual(self.tu, TestUnion(i32_field=43))
 
 		#self.tu.clear()
 
 		#self.assertEqual(self.tu.setfield, 'i32_set')
 
-	def runTest(self):
-		self.test()
-		self.test()
+  def runTest(self):
+    self.test()
+    self.test()
 
 
 

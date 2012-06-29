@@ -31,25 +31,28 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
 try:
-	transport = TSocket.TSocket('localhost', 9090)
-	transport = TTransport.TBufferedTransport(transport)
-	protocol = TBinaryProtocol.TBinaryProtocol(transport)
-	client = UnionTest.Client(protocol)
-	transport.open()
+  transport = TSocket.TSocket('localhost', 9090)
+  transport = TTransport.TBufferedTransport(transport)
+  protocol = TBinaryProtocol.TBinaryProtocolAccelerated(transport)
+  client = UnionTest.Client(protocol)
+  transport.open()
 
-	print " UNION TEST ".center(50, "=")
+  print " UNION TEST ".center(50, "=")
 
-	# Implicitly checks read and write methods
-	try:
-		res = client.test_constructor()
-		res = client.test_set_field()
-		res = client.test_clear()
-	except Exception, exe:
-		print "TEST FAILED:\n\t%r" % exe
-		sys.exit(1)
+  # Implicitly checks read and write methods
+  try:
+    res = client.test_constructor()
+    print res, res.setfield
+    res = client.test_set_field()
+    print res, res.setfield
+    res = client.test_clear()
+    print res, res.setfield
+  except Exception, exe:
+    print "TEST FAILED:\n\t%r" % exe
+    sys.exit(1)
 
-	print "ALL TESTS PASSED"
-	transport.close()
+  print "ALL TESTS PASSED"
+  transport.close()
 
 except Thrift.TException, tx:
-	print '%s' % (tx.message)
+  print '%s' % (tx.message)

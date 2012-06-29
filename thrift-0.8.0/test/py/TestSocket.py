@@ -28,6 +28,9 @@ del sys.argv[1:] # clean up hack so unittest doesn't complain
 sys.path.insert(0, options.genpydir)
 sys.path.insert(0, glob.glob('../../lib/py/build/lib.*')[0])
 
+import sys
+sys.path.append('../gen-py')
+
 from ThriftTest import ThriftTest
 from ThriftTest.ttypes import *
 from thrift.transport import TTransport

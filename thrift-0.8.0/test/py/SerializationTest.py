@@ -28,11 +28,14 @@ del sys.argv[1:] # clean up hack so unittest doesn't complain
 sys.path.insert(0, options.genpydir)
 sys.path.insert(0, glob.glob('../../lib/py/build/lib.*')[0])
 
+import sys
+sys.path.append('../gen-py')
+
 from ThriftTest.ttypes import *
 from DebugProtoTest.ttypes import CompactProtoTestStruct, Empty
 from thrift.transport import TTransport
 from thrift.transport import TSocket
-from thrift.protocol import TBinaryProtocol, TCompactProtocol
+from thrift.protocol import TBinaryProtocol, TCompactProtocol, TJSONProtocol
 from thrift.TSerialization import serialize, deserialize
 import unittest
 import time
@@ -276,6 +279,9 @@ class AcceleratedBinaryTest(AbstractTest):
 class CompactProtocolTest(AbstractTest):
   protocol_factory = TCompactProtocol.TCompactProtocolFactory()
 
+class JSONProtocolTest(AbstractTest):
+  protocol_factory = TJSONProtocol.TJSONProtocolFactory()
+
 class AcceleratedFramedTest(unittest.TestCase):
   def testSplit(self):
     """Test FramedTransport and BinaryProtocolAccelerated
@@ -349,6 +355,7 @@ def suite():
   suite.addTest(loader.loadTestsFromTestCase(NormalBinaryTest))
   suite.addTest(loader.loadTestsFromTestCase(AcceleratedBinaryTest))
   suite.addTest(loader.loadTestsFromTestCase(CompactProtocolTest))
+  suite.addTest(loader.loadTestsFromTestCase(JSONProtocolTest))
   suite.addTest(loader.loadTestsFromTestCase(AcceleratedFramedTest))
   suite.addTest(loader.loadTestsFromTestCase(SerializersTest))
   return suite

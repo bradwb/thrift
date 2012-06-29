@@ -27,6 +27,8 @@ import os
 import signal
 from optparse import OptionParser
 
+sys.path.append('../gen-py')
+
 parser = OptionParser()
 parser.add_option('--genpydirs', type='string', dest='genpydirs',
     default='default,slots,newstyle,newstyleslots,dynamic,dynamicslots',
@@ -55,7 +57,8 @@ EXTRA_DELAY = dict(TProcessPoolServer=3.5)
 PROTOS= [
     'accel',
     'binary',
-    'compact' ]
+    'compact',
+    'json' ]
 
 SERVERS = [
   "TSimpleServer",
@@ -107,7 +110,7 @@ def runServiceTest(genpydir, server_class, proto, port, use_zlib, use_ssl):
   cli_args = [sys.executable, relfile('TestClient.py') ]
   for which in (server_args, cli_args):
     which.append('--genpydir=%s' % genpydir)
-    which.append('--proto=%s' % proto) # accel, binary or compact
+    which.append('--proto=%s' % proto) # accel, binary, compact, or json
     which.append('--port=%d' % port) # default to 9090
     if use_zlib:
       which.append('--zlib')
@@ -127,7 +130,7 @@ def runServiceTest(genpydir, server_class, proto, port, use_zlib, use_ssl):
   if options.verbose > 0:
     print 'Testing server %s: %s' % (server_class, ' '.join(server_args))
   serverproc = subprocess.Popen(server_args)
-  time.sleep(0.15)
+  time.sleep(0.5)
   try:
     if options.verbose > 0:
       print 'Testing client: %s' % (' '.join(cli_args))

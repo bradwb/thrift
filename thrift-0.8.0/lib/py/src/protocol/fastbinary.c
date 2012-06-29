@@ -926,10 +926,26 @@ decode_struct(DecodeBuffer* input, PyObject* output, PyObject* spec_seq) {
       return false;
     }
 
-    if (PyObject_SetAttr(output, parsedspec.attrname, fieldval) == -1) {
-      Py_DECREF(fieldval);
-      return false;
+    // Adds detection for unions and sets the field properly
+    if (PyObject_HasAttrString(output, "_setfield")) {
+      PyObject *f_name = Py_BuildValue("s", "set_field");
+      if (f_name == NULL) {
+        Py_DECREF(f_name);
+        return false;
+      }
+
+      if (PyObject_CallMethodObjArgs(output, f_name, parsedspec.attrname, fieldval) == NULL) {
+        Py_DECREF(f_name);
+        Py_DECREF(fieldval);
+        return false;
+      }
+      Py_DECREF(f_name);
+    } else if (PyObject_SetAttr(output, parsedspec.attrname, fieldval) == -1) {
+        Py_DECREF(fieldval);
+        return false;
     }
+
+
     Py_DECREF(fieldval);
   }
   return true;

@@ -62,9 +62,7 @@ exception InvalidOperation {
 service Calculator {
    Num echo(1:Num n),
 
-   void clear(1:Num n),
-
-	 
+   void clear(1:Num n), 
 
    Biggun echoBig(1:Biggun b),
 
